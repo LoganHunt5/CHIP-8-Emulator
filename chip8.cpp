@@ -1,3 +1,5 @@
+// TODO: Send the clear screen command to SDL file...
+
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -17,6 +19,7 @@ public:
   std::vector<uint8_t> registers[16]{};
   // to hold a hex color value, 0x00000000 or 0xFFFFFFFF
   uint32_t video[32 * 64]{};
+  uint16_t opcode{};
 };
 
 bool loadFont(chip8 *Chip);
@@ -50,7 +53,6 @@ bool loadFont(chip8 *Chip) {
   for (auto x : tempfont) {
     Chip->memory[inc] = x;
     ++inc;
-    // std::cout << std::hex << unsigned(x) << '\n';
   }
   return true;
 }
@@ -66,9 +68,27 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
   while (*file >> x) {
     Chip->memory[Chip->pc] = x;
     Chip->pc++;
+    std::cout << std::hex << unsigned(x) << ' ';
   }
+  std::cout << '\n' << std::endl;
   Chip->pc = 0x200;
   return true;
 }
 
-void loop(chip8 *Chip) {}
+void loop(chip8 *Chip) {
+  bool running = true;
+  int count = 0;
+  while (running) {
+    // fetch
+    // combine the 2 8 bit halves of the instruction
+    Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
+                   ((uint16_t)Chip->memory[Chip->pc + 1]);
+    Chip->pc += 2;
+    if (count > 10) {
+      running = false;
+    }
+    printf("%04X\n", Chip->opcode);
+    count++;
+  }
+  std::cout << std::endl;
+}
