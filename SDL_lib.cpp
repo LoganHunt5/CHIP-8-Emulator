@@ -26,6 +26,10 @@ bool init(SDL_Window *gWindow, int h, int w, SDL_Renderer *renderer) {
     if (gWindow == NULL || renderer == NULL) {
       printf("Window could not be shown. %s\n", SDL_GetError());
       success = false;
+    } else {
+      SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+      SDL_RenderClear(renderer);
+      SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     }
   }
   return success;

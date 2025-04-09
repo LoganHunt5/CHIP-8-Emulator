@@ -2,15 +2,18 @@
 // with switch statement
 
 #include "SDL_lib.h"
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <stack>
+#include <thread>
 #include <vector>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
+#include <SDL2/SDL_video.h>
 
 // Screen dimension constants
 const int SCREEN_WIDTH = 64;
@@ -101,7 +104,7 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
 void loop(chip8 *Chip) {
   if (!init(gWindow, SCREEN_HEIGHT, SCREEN_WIDTH, gRenderer)) {
     printf("failed to init\n");
-  } /*else {
+  } else {
     // Main loop flag
     bool quit = false;
 
@@ -109,13 +112,14 @@ void loop(chip8 *Chip) {
     SDL_Event e;
 
     while (!quit) {
+      auto timerstart = std::chrono::high_resolution_clock::now();
       for (int i = 0; i < 600; i++) {
         // fetch
         // combine the 2 8 bit halves of the instruction
         Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
                        ((uint16_t)Chip->memory[Chip->pc + 1]);
-        Chip->pc += 2;
-        // printf("%04X ", Chip->opcode);
+        // Chip->pc += 2;
+        //  printf("%04X ", Chip->opcode);
       }
       // printf("\n")
       while (SDL_PollEvent(&e) != 0) {
@@ -123,7 +127,16 @@ void loop(chip8 *Chip) {
           quit = true;
         }
       }
+      auto timerend = std::chrono::high_resolution_clock::now();
+
+      auto waittime = std::chrono::duration_cast<std::chrono::microseconds>(
+                          timerend - timerstart)
+                          .count();
+
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(1000 / 60 - waittime));
+
       SDL_UpdateWindowSurface(gWindow);
     }
-  }*/
+  }
 }
