@@ -80,14 +80,14 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
     return false;
   }
   Chip->pc = 0x200;
-  uint8_t x = 0x00;
-  int counter = 0;
-  while (*file >> x) {
-    Chip->memory[Chip->pc] = x;
-    Chip->pc++;
-    counter++;
+  unsigned char x;
+  uint8_t instruction;
+  while ((*file).get((char &)x)) {
+    instruction = ((uint8_t)x);
+    Chip->memory[Chip->pc++] = (uint8_t)x;
+    printf("%02X ", instruction);
   }
-  std::cout << '\n' << std::endl;
+  std::cout << std::endl;
   Chip->pc = 0x200;
   return true;
 }
@@ -226,7 +226,7 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           // draw command
           default:
-            printf("%X", Chip->opcode);
+            printf("PRINT COMMAND: %X\n", Chip->opcode);
             break;
           }
           break;
