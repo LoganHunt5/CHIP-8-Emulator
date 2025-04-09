@@ -95,7 +95,7 @@ bool loadMedia() {
   gHelloAlt = SDL_LoadBMP("TestingImages/hello_alt.bmp");
   if (gHelloWorld == NULL || gHelloAlt == NULL) {
     printf("Unable to load image %s, Error: %s\n",
-           "02_getting_an_image_on_the_screen/hello_world.bmp", SDL_GetError());
+           "TestingImages/hello_world.bmp", SDL_GetError());
     success = false;
   }
   return success;

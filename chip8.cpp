@@ -1,4 +1,5 @@
-// TODO: Send the clear screen command to SDL file...
+// TODO: Send the clear screen command to SDL file... so start the decode step
+// with switch statement
 
 #include <cstdint>
 #include <cstdlib>
