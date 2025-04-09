@@ -8,6 +8,19 @@
 #include <stack>
 #include <vector>
 
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_render.h>
+
+// Screen dimension constants
+const int SCREEN_WIDTH = 64;
+const int SCREEN_HEIGHT = 32;
+
+// globals
+// Window
+SDL_Window *gWindow = NULL;
+//
+SDL_Renderer *gRenderer = NULL;
+
 class chip8 {
 public:
   uint8_t memory[4096]{};
@@ -66,10 +79,18 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
   }
   Chip->pc = 0x200;
   uint8_t x = 0x00;
+  int counter = 0;
   while (*file >> x) {
     Chip->memory[Chip->pc] = x;
     Chip->pc++;
-    std::cout << std::hex << unsigned(x) << ' ';
+    counter++;
+    /*if (counter % 2 == 1) {
+
+      printf("%02X", x);
+    } else {
+
+      printf("%02X ", x);
+    }*/
   }
   std::cout << '\n' << std::endl;
   Chip->pc = 0x200;
@@ -77,19 +98,31 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
 }
 
 void loop(chip8 *Chip) {
-  bool running = true;
-  int count = 0;
-  while (running) {
-    // fetch
-    // combine the 2 8 bit halves of the instruction
-    Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
-                   ((uint16_t)Chip->memory[Chip->pc + 1]);
-    Chip->pc += 2;
-    if (count > 10) {
-      running = false;
+  if (!init()) {
+    printf("failed to init\n");
+  } else {
+    // Main loop flag
+    bool quit = false;
+
+    // Event handler
+    SDL_Event e;
+
+    while (!quit) {
+      for (int i = 0; i < 600; i++) {
+        // fetch
+        // combine the 2 8 bit halves of the instruction
+        Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
+                       ((uint16_t)Chip->memory[Chip->pc + 1]);
+        Chip->pc += 2;
+        // printf("%04X ", Chip->opcode);
+      }
+      // printf("\n")
+      while (SDL_PollEvent(&e) != 0) {
+        if (e.type == SDL_QUIT) {
+          quit = true;
+        }
+      }
+      SDL_UpdateWindowSurface(gWindow);
     }
-    printf("%04X\n", Chip->opcode);
-    count++;
   }
-  std::cout << std::endl;
 }
