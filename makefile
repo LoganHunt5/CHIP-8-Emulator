@@ -1,24 +1,25 @@
-#OBJS specifies which files to compile as part of the project
-OBJS = chip8.cpp
-
 #CC specifies which compiler we're using
 CC = g++
+CFLAGS = -w
 
-#COMPILER_FLAGS specifies the additional compilation options we're using
-# -w suppresses all warnings
-COMPILER_FLAGS = -w
+#TARGET specifies the name of our exectuable
+TARGET = chip8
 
-#OBJ_NAME specifies the name of our exectuable
-OBJ_NAME = chip8
+OBJ = SDL_lib.o chip8.o
 
 GAME = IBMLogo.ch8
 
-#This is the target that compiles our executable
-$(OBJ_NAME): $(OBJS)
-	$(CC) $(OBJS) $(COMPILER_FLAGS) -o $(OBJ_NAME)
+OUTPUT = chip8
 
-run: $(OBJ_NAME)
-	./$(OBJ_NAME) $(GAME)
+#This is the target that compiles our executable
+$(TARGET): $(OBJ)
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm $(OBJ_NAME)
+	rm -f $(OBJ) $(TARGET) $(OUTPUT)
+
+run: $(TARGET)
+	./$(TARGET) $(GAME)

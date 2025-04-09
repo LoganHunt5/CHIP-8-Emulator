@@ -1,6 +1,7 @@
 // TODO: Send the clear screen command to SDL file... so start the decode step
 // with switch statement
 
+#include "SDL_lib.h"
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -98,9 +99,9 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
 }
 
 void loop(chip8 *Chip) {
-  if (!init()) {
+  if (!init(gWindow, SCREEN_HEIGHT, SCREEN_WIDTH, gRenderer)) {
     printf("failed to init\n");
-  } else {
+  } /*else {
     // Main loop flag
     bool quit = false;
 
@@ -124,5 +125,5 @@ void loop(chip8 *Chip) {
       }
       SDL_UpdateWindowSurface(gWindow);
     }
-  }
+  }*/
 }
