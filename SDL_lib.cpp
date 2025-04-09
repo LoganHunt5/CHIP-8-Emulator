@@ -35,7 +35,7 @@ bool init(SDL_Window *gWindow, int h, int w, SDL_Renderer *renderer) {
   return success;
 }
 
-void update(SDL_Window *gWindow, SDL_Renderer *renderer, int x, int y, int n) {}
+void draw(SDL_Window *gWindow, SDL_Renderer *renderer, int x, int y, int n) {}
 
 void close(SDL_Window *gWindow, SDL_Renderer *renderer) {
   SDL_DestroyRenderer(renderer);
