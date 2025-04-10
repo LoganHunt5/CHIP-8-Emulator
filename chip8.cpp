@@ -44,12 +44,17 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip);
 
 void loop(chip8 *Chip);
 
+bool init();
+
+void close();
+
 int main(int argc, char *argv[]) {
   chip8 TheChip;
   std::ifstream gameFile;
   if (loadFont(&TheChip)) {
     if (importGame(argv[1], &gameFile, &TheChip)) {
       loop(&TheChip);
+      close();
     }
   }
 
@@ -85,7 +90,7 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
   while ((*file).get((char &)x)) {
     instruction = ((uint8_t)x);
     Chip->memory[Chip->pc++] = (uint8_t)x;
-    printf("%02X ", instruction);
+    // printf("%02X ", instruction);
   }
   std::cout << std::endl;
   Chip->pc = 0x200;
@@ -93,7 +98,7 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip) {
 }
 
 void loop(chip8 *Chip) {
-  if (!init(gWindow, SCREEN_HEIGHT, SCREEN_WIDTH, gRenderer)) {
+  if (!init()) {
     printf("failed to init\n");
   } else {
     // Main loop flag
@@ -103,9 +108,11 @@ void loop(chip8 *Chip) {
     SDL_Event e;
 
     while (!quit) {
+      // true if a draw instruction is read
+      bool render = false;
       std::chrono::system_clock::time_point timerstart =
           std::chrono::high_resolution_clock::now();
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < 1; i++) {
         // fetch
         // combine the 2 8 bit halves of the instruction
         Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
@@ -114,12 +121,13 @@ void loop(chip8 *Chip) {
 
         //  decode
         uint8_t firstNumber = (Chip->opcode >> 8) & 0xF0;
-        printf("First Number: %02X Full: %04X\n", firstNumber, Chip->opcode);
+        // printf("First Number: %02X Full: %04X\n", firstNumber, Chip->opcode);
         switch (firstNumber) {
 
         case 0x00:
           switch (Chip->opcode) {
           case 0x00E0:
+            SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
             SDL_RenderClear(gRenderer);
             break;
           case 0x00EE:
@@ -150,7 +158,7 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           default:
             // if VX = NN in 3XNN skip 1 instruction
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) << 8);
+            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
             if (Chip->registers[regi] == (uint8_t)(Chip->opcode & 0x00FF)) {
               Chip->pc += 2;
             }
@@ -162,7 +170,7 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           default:
             // if VX != NN in 4XNN skip 1 instruction
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) << 8);
+            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
             if (Chip->registers[regi] != (uint8_t)(Chip->opcode & 0x00FF)) {
               Chip->pc += 2;
             }
@@ -174,8 +182,8 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           default:
             // if VX == VY in 5XY0 skip 1 instruction
-            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) << 8);
-            uint8_t regi2 = (uint8_t)(Chip->opcode & 0x00F0);
+            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
+            uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
             if (Chip->registers[regi1] == Chip->registers[regi2]) {
               Chip->pc += 2;
             }
@@ -186,7 +194,7 @@ void loop(chip8 *Chip) {
         case 0x60:
           switch (Chip->opcode) {
           default:
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) << 8);
+            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
             Chip->registers[regi] = (uint8_t)(Chip->opcode);
             break;
           }
@@ -195,8 +203,8 @@ void loop(chip8 *Chip) {
         case 0x70:
           switch (Chip->opcode) {
           default:
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) << 8);
-            Chip->registers[regi] += (uint8_t)((Chip->opcode & 0x00FF) << 8);
+            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
+            Chip->registers[regi] += (uint8_t)(Chip->opcode);
             break;
           }
           break;
@@ -205,8 +213,8 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           default:
             // if VX != VY in 9XY0 skip 1 instruction
-            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) << 8);
-            uint8_t regi2 = (uint8_t)(Chip->opcode & 0x00F0);
+            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
+            uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
             if (Chip->registers[regi1] != Chip->registers[regi2]) {
               Chip->pc += 2;
             }
@@ -226,7 +234,56 @@ void loop(chip8 *Chip) {
           switch (Chip->opcode) {
           // draw command
           default:
-            printf("PRINT COMMAND: %X\n", Chip->opcode);
+            render = true;
+            uint8_t x =
+                Chip->registers[(uint8_t)((Chip->opcode & 0x0F00) << 8)] %
+                SCREEN_WIDTH;
+            uint8_t y = Chip->registers[(uint8_t)(Chip->opcode & 0x00F0)] %
+                        SCREEN_HEIGHT;
+            // height
+            uint8_t N = (uint8_t)(Chip->opcode) & 0x0F;
+            // printf("x: %X\n", x);
+            // VF keeps track of collision in sprites
+            Chip->registers[0x0F] = 0;
+
+            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
+                   Chip->index, x, y, N);
+            for (int row = 0; row < N; row++) {
+              uint8_t spriteRow = Chip->memory[Chip->index + row];
+              // printf("Sprite Row: %X\n", spriteRow);
+
+              for (int col = 0; col < 8; col++) {
+
+                // POSSIBLE BUG BECAUSE OF SCALE CHANGE IN INIT
+                if (col + x > SCREEN_WIDTH) {
+                  break;
+                }
+
+                uint32_t *screenPixel =
+                    &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+
+                uint8_t spriteCur = (((spriteRow >> (7 - col)) & 0x01) == 0x01);
+                // printf("%X ", spriteCur);
+                // collision
+                if (spriteCur && (*screenPixel == 0xFFFFFFFF)) {
+                  *screenPixel = 0x00000000;
+                  Chip->registers[0x0F] = 1;
+                } else if (spriteCur) {
+                  *screenPixel ^= 0xFFFFFFFF;
+                }
+
+                if (*screenPixel == 0xFFFFFFFF) {
+                  // printf("drawing at %d, %d ", col + x, row + y);
+                  SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+                  SDL_RenderDrawPoint(gRenderer, col + x, row + y);
+                } else {
+                  SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
+                  SDL_RenderDrawPoint(gRenderer, (int)(col + x),
+                                      (int)(row + y));
+                }
+              }
+              // puts("");
+            }
             break;
           }
           break;
@@ -246,11 +303,49 @@ void loop(chip8 *Chip) {
                           timerend - timerstart)
                           .count();
       // for 60fps
-      // std::this_thread::sleep_for(
-      //    std::chrono::milliseconds(1000 / 60 - waittime));
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(1000 / 60 - waittime));
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(1000 - waittime));
-      SDL_UpdateWindowSurface(gWindow);
+      // 1fps
+      // std::this_thread::sleep_for(std::chrono::milliseconds(1000 -
+      // waittime)); puts("rendering");
+      if (render) {
+        render = false;
+        SDL_RenderPresent(gRenderer);
+      }
     }
   }
+}
+
+bool init() {
+
+  bool success = true;
+
+  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    printf("SDL could not init! SDL_Error: %s\n", SDL_GetError());
+    success = false;
+  } else {
+    // create
+    gWindow = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED,
+                               SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+                               SCREEN_HEIGHT, 0);
+    gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
+    SDL_RenderClear(gRenderer);
+    SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+    SDL_RenderPresent(gRenderer);
+    SDL_RenderSetScale(gRenderer, 6, 6);
+    SDL_SetWindowSize(gWindow, SCREEN_WIDTH * 6, SCREEN_HEIGHT * 6);
+    if (gWindow == NULL || gRenderer == NULL) {
+      printf("Window could not be shown. %s\n", SDL_GetError());
+      success = false;
+    }
+  }
+  return success;
+}
+
+void close() {
+  SDL_DestroyRenderer(gRenderer);
+  SDL_DestroyWindow(gWindow);
+  SDL_Quit();
 }

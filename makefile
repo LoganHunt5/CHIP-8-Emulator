@@ -5,7 +5,7 @@ CFLAGS = -w
 #TARGET specifies the name of our exectuable
 TARGET = chip8
 
-OBJ = SDL_lib.o chip8.o
+OBJ = chip8.o
 
 LIB = -lSDL2
 

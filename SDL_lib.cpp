@@ -1,19 +1,11 @@
 #include "SDL_lib.h"
-/*
-    while (!quit) {
-      // handle events in the even queue
-      while (SDL_PollEvent(&e) != 0) {
-        if (e.type == SDL_QUIT) {
-          quit = true;
-        }
-      }
-      SDL_UpdateWindowSurface(gWindow);
-    }
-  }
-}
-*/
+#include <SDL2/SDL_render.h>
+#include <SDL2/SDL_video.h>
 
-bool init(SDL_Window *gWindow, int h, int w, SDL_Renderer *renderer) {
+const int SCREEN_WIDTH = 64;
+const int SCREEN_HEIGHT = 32;
+
+/*bool init(SDL_Window *gWindow, int h, int w, SDL_Renderer *renderer) {
 
   bool success = true;
 
@@ -22,24 +14,28 @@ bool init(SDL_Window *gWindow, int h, int w, SDL_Renderer *renderer) {
     success = false;
   } else {
     // create
-    SDL_CreateWindowAndRenderer(w, h, 0, &gWindow, &renderer);
+    gWindow = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED,
+                               SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+                               SCREEN_HEIGHT, 0);
+    renderer = SDL_CreateRenderer(gWindow, -1, 0);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    SDL_RenderPresent(renderer);
     if (gWindow == NULL || renderer == NULL) {
       printf("Window could not be shown. %s\n", SDL_GetError());
       success = false;
-    } else {
-      SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-      SDL_RenderClear(renderer);
-      SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     }
   }
   return success;
 }
 
-void draw(SDL_Window *gWindow, SDL_Renderer *renderer, int x, int y, int n) {}
+void draw(SDL_Window *gWindow, SDL_Renderer *renderer, uint8_t x, uint8_t y,
+          uint8_t n) {}
 
 void close(SDL_Window *gWindow, SDL_Renderer *renderer) {
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(gWindow);
 
   SDL_Quit();
-}
+}*/
