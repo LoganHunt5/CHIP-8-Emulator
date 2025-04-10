@@ -32,7 +32,7 @@ public:
   uint8_t sp{};
   uint8_t delay_timer{};
   uint8_t sound_timer{};
-  int8_t registers[16]{};
+  uint8_t registers[16]{};
   // to hold a hex color value, 0x00000000 or 0xFFFFFFFF
   uint32_t video[32 * 64]{};
   uint16_t opcode{};
@@ -121,9 +121,12 @@ void loop(chip8 *Chip) {
 
         //  decode
         uint8_t firstNumber = (Chip->opcode >> 8) & 0xF0;
+        uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
+        uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
+        uint8_t *data1 = &(Chip->registers[regi1]);
+        uint8_t *data2 = &(Chip->registers[regi2]);
         // printf("First Number: %02X Full: %04X\n", firstNumber, Chip->opcode);
         switch (firstNumber) {
-
         case 0x00:
           switch (Chip->opcode) {
           case 0x00E0:
@@ -138,155 +141,162 @@ void loop(chip8 *Chip) {
           break;
 
         case 0x10:
-          switch (Chip->opcode) {
-          default:
-            Chip->pc = Chip->opcode & 0x0FFF;
-            break;
-          }
+          Chip->pc = Chip->opcode & 0x0FFF;
           break;
 
         case 0x20:
-          switch (Chip->opcode) {
-          default:
-            Chip->pc = Chip->opcode & 0x0FFF;
-            Chip->stack.push(Chip->opcode & 0x0FFF);
-            break;
-          }
+          Chip->pc = Chip->opcode & 0x0FFF;
+          Chip->stack.push(Chip->opcode & 0x0FFF);
           break;
 
         case 0x30:
-          switch (Chip->opcode) {
-          default:
-            // if VX = NN in 3XNN skip 1 instruction
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            if (Chip->registers[regi] == (uint8_t)(Chip->opcode & 0x00FF)) {
-              Chip->pc += 2;
-            }
-            break;
+          // if VX = NN in 3XNN skip 1 instruction
+          if (*data1 == (uint8_t)(Chip->opcode & 0x00FF)) {
+            Chip->pc += 2;
           }
           break;
 
         case 0x40:
-          switch (Chip->opcode) {
-          default:
-            // if VX != NN in 4XNN skip 1 instruction
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            if (Chip->registers[regi] != (uint8_t)(Chip->opcode & 0x00FF)) {
-              Chip->pc += 2;
-            }
-            break;
+          // if VX != NN in 4XNN skip 1 instruction
+          if (*data1 != (uint8_t)(Chip->opcode & 0x00FF)) {
+            Chip->pc += 2;
           }
           break;
 
         case 0x50:
-          switch (Chip->opcode) {
-          default:
-            // if VX == VY in 5XY0 skip 1 instruction
-            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
-            if (Chip->registers[regi1] == Chip->registers[regi2]) {
-              Chip->pc += 2;
-            }
-            break;
+          // if VX == VY in 5XY0 skip 1 instruction
+          if (*data1 == *data2) {
+            Chip->pc += 2;
           }
           break;
 
         case 0x60:
-          switch (Chip->opcode) {
-          default:
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            Chip->registers[regi] = (uint8_t)(Chip->opcode);
-            break;
-          }
+          *data1 = (uint8_t)(Chip->opcode);
           break;
 
         case 0x70:
-          switch (Chip->opcode) {
-          default:
-            uint8_t regi = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            Chip->registers[regi] += (uint8_t)(Chip->opcode);
+          *data1 += (uint8_t)(Chip->opcode);
+          break;
+        case 0x80:
+          switch ((uint8_t)(Chip->opcode & 0x000F)) {
+          case 0x00:
+            *data1 = *data2;
+            break;
+          case 0x01:
+            *data1 |= *data2;
+            break;
+          case 0x02:
+            *data1 &= *data2;
+            break;
+          case 0x03:
+            *data1 ^= *data2;
+            break;
+          case 0x04:
+            // VF set to 0 if overflow
+            Chip->registers[0x0F] = 0;
+            if ((*data2 > 0) && (*data1 > UINT8_MAX - *data1)) {
+              Chip->registers[0x0F] = 1;
+            }
+            *data1 += *data2;
+            break;
+          case 0x05:
+            // VF set to 0 if underflow
+            Chip->registers[0x0F] = 1;
+            if (*data1 < *data2) {
+              Chip->registers[0x0F] = 0;
+            }
+            *data1 -= *data2;
+            break;
+          case 0x06:
+            // store least significant then bit shift by 1
+            Chip->registers[0x0F] = *data1 & 0x01;
+            *data1 >>= 1;
+            break;
+          case 0x07:
+            // VF set to 0 if underflow
+            Chip->registers[0x0F] = 1;
+            if (*data1 > *data2) {
+              Chip->registers[0x0F] = 0;
+            }
+            *data1 = *data2 - *data1;
+            break;
+          case 0x0E:
+            // store least significant then bit shift by 1
+            // POSSIBLE BUG didn't really rhingk about it
+            Chip->registers[0x0F] = *data1 >> 7;
+            *data1 <<= 1;
             break;
           }
           break;
-
         case 0x90:
-          switch (Chip->opcode) {
-          default:
-            // if VX != VY in 9XY0 skip 1 instruction
-            uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-            uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
-            if (Chip->registers[regi1] != Chip->registers[regi2]) {
-              Chip->pc += 2;
-            }
-            break;
+          // if VX != VY in 9XY0 skip 1 instruction
+          if (*data1 != *data2) {
+            Chip->pc += 2;
           }
           break;
 
         case 0xA0:
-          switch (Chip->opcode) {
-          default:
-            Chip->index = Chip->opcode & 0x0FFF;
-            break;
-          }
+          Chip->index = Chip->opcode & 0x0FFF;
           break;
 
         case 0xD0:
-          switch (Chip->opcode) {
           // draw command
-          default:
-            render = true;
-            uint8_t x =
-                Chip->registers[(uint8_t)((Chip->opcode & 0x0F00) << 8)] %
-                SCREEN_WIDTH;
-            uint8_t y = Chip->registers[(uint8_t)(Chip->opcode & 0x00F0)] %
-                        SCREEN_HEIGHT;
-            // height
-            uint8_t N = (uint8_t)(Chip->opcode) & 0x0F;
-            // printf("x: %X\n", x);
-            // VF keeps track of collision in sprites
-            Chip->registers[0x0F] = 0;
+          render = true;
+          uint8_t x = *data1 % SCREEN_WIDTH;
+          uint8_t y = *data2 % SCREEN_HEIGHT;
+          // height
+          uint8_t N = (uint8_t)(Chip->opcode) & 0x0F;
+          // printf("x: %X\n", x);
+          // VF keeps track of collision in sprites
+          Chip->registers[0x0F] = 0;
 
-            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
-                   Chip->index, x, y, N);
-            for (int row = 0; row < N; row++) {
-              uint8_t spriteRow = Chip->memory[Chip->index + row];
-              // printf("Sprite Row: %X\n", spriteRow);
+          printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
+                 Chip->index, x, y, N);
+          for (int row = 0; row < N; row++) {
+            uint8_t spriteRow = Chip->memory[Chip->index + row];
+            // printf("Sprite Row: %X\n", spriteRow);
 
-              for (int col = 0; col < 8; col++) {
+            for (int col = 0; col < 8; col++) {
 
-                // POSSIBLE BUG BECAUSE OF SCALE CHANGE IN INIT
-                if (col + x > SCREEN_WIDTH) {
-                  break;
-                }
-
-                uint32_t *screenPixel =
-                    &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
-
-                uint8_t spriteCur = (((spriteRow >> (7 - col)) & 0x01) == 0x01);
-                // printf("%X ", spriteCur);
-                // collision
-                if (spriteCur && (*screenPixel == 0xFFFFFFFF)) {
-                  *screenPixel = 0x00000000;
-                  Chip->registers[0x0F] = 1;
-                } else if (spriteCur) {
-                  *screenPixel ^= 0xFFFFFFFF;
-                }
-
-                if (*screenPixel == 0xFFFFFFFF) {
-                  // printf("drawing at %d, %d ", col + x, row + y);
-                  SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
-                  SDL_RenderDrawPoint(gRenderer, col + x, row + y);
-                } else {
-                  SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
-                  SDL_RenderDrawPoint(gRenderer, (int)(col + x),
-                                      (int)(row + y));
-                }
+              // POSSIBLE BUG BECAUSE OF SCALE CHANGE IN INIT
+              if (col + x > SCREEN_WIDTH) {
+                break;
               }
-              // puts("");
+
+              uint32_t *screenPixel =
+                  &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+
+              uint8_t spriteCur = (((spriteRow >> (7 - col)) & 0x01) == 0x01);
+              // printf("%X ", spriteCur);
+              // collision
+              if (spriteCur && (*screenPixel == 0xFFFFFFFF)) {
+                *screenPixel = 0x00000000;
+                Chip->registers[0x0F] = 1;
+              } else if (spriteCur) {
+                *screenPixel ^= 0xFFFFFFFF;
+              }
+
+              if (*screenPixel == 0xFFFFFFFF) {
+                // printf("drawing at %d, %d ", col + x, row + y);
+                SDL_SetRenderDrawColor(gRenderer, 91, 222, 139, 255);
+                SDL_RenderDrawPoint(gRenderer, col + x, row + y);
+              } else {
+                SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
+                SDL_RenderDrawPoint(gRenderer, (int)(col + x), (int)(row + y));
+              }
             }
-            break;
+            // puts("");
           }
           break;
+          /*
+        case 0xE0:
+        switch((uint8_t)Chip->opcode){
+            case 0x9E:
+
+            break;
+            case 0xA1:
+            break;
+          }*/
         }
       }
 
@@ -306,9 +316,6 @@ void loop(chip8 *Chip) {
       std::this_thread::sleep_for(
           std::chrono::milliseconds(1000 / 60 - waittime));
 
-      // 1fps
-      // std::this_thread::sleep_for(std::chrono::milliseconds(1000 -
-      // waittime)); puts("rendering");
       if (render) {
         render = false;
         SDL_RenderPresent(gRenderer);
@@ -326,16 +333,23 @@ bool init() {
     success = false;
   } else {
     // create
-    gWindow = SDL_CreateWindow("CHIP-8", SDL_WINDOWPOS_CENTERED,
-                               SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
-                               SCREEN_HEIGHT, 0);
+    gWindow = SDL_CreateWindow("CHIP-8", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
     gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
     SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
     SDL_RenderClear(gRenderer);
-    SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 255);
+    SDL_SetRenderDrawColor(gRenderer, 91, 222, 139, 255);
     SDL_RenderPresent(gRenderer);
-    SDL_RenderSetScale(gRenderer, 6, 6);
-    SDL_SetWindowSize(gWindow, SCREEN_WIDTH * 6, SCREEN_HEIGHT * 6);
+
+    SDL_DisplayMode DM;
+    SDL_GetCurrentDisplayMode(0, &DM);
+    float userWidth = DM.w;
+    float userHeight = DM.h;
+    std::cout << (userWidth - 100) / SCREEN_WIDTH << std::endl;
+    SDL_RenderSetScale(gRenderer, (userWidth) / SCREEN_WIDTH,
+                       (userHeight) / SCREEN_HEIGHT);
+    SDL_SetWindowSize(gWindow, (userWidth) / SCREEN_WIDTH * SCREEN_WIDTH,
+                      (userHeight) / SCREEN_HEIGHT * SCREEN_HEIGHT);
+
     if (gWindow == NULL || gRenderer == NULL) {
       printf("Window could not be shown. %s\n", SDL_GetError());
       success = false;
