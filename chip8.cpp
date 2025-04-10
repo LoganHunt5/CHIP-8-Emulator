@@ -104,6 +104,12 @@ void loop(chip8 *Chip) {
     // Main loop flag
     bool quit = false;
 
+    // variables used in cases
+    uint8_t x;
+    uint8_t y;
+    uint8_t N;
+    int bcdint;
+
     // Event handler
     SDL_Event e;
 
@@ -112,6 +118,12 @@ void loop(chip8 *Chip) {
       bool render = false;
       std::chrono::system_clock::time_point timerstart =
           std::chrono::high_resolution_clock::now();
+      if (Chip->delay_timer > 0) {
+        --Chip->delay_timer;
+      }
+      if (Chip->sound_timer > 0) {
+        --Chip->sound_timer;
+      }
       for (int i = 0; i < 1; i++) {
         // fetch
         // combine the 2 8 bit halves of the instruction
@@ -242,16 +254,16 @@ void loop(chip8 *Chip) {
         case 0xD0:
           // draw command
           render = true;
-          uint8_t x = *data1 % SCREEN_WIDTH;
-          uint8_t y = *data2 % SCREEN_HEIGHT;
+          x = *data1 % SCREEN_WIDTH;
+          y = *data2 % SCREEN_HEIGHT;
           // height
-          uint8_t N = (uint8_t)(Chip->opcode) & 0x0F;
+          N = (uint8_t)(Chip->opcode) & 0x0F;
           // printf("x: %X\n", x);
           // VF keeps track of collision in sprites
           Chip->registers[0x0F] = 0;
 
-          printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
-                 Chip->index, x, y, N);
+          // printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
+          //       Chip->index, x, y, N);
           for (int row = 0; row < N; row++) {
             uint8_t spriteRow = Chip->memory[Chip->index + row];
             // printf("Sprite Row: %X\n", spriteRow);
@@ -285,20 +297,68 @@ void loop(chip8 *Chip) {
                 SDL_RenderDrawPoint(gRenderer, (int)(col + x), (int)(row + y));
               }
             }
+
             // puts("");
           }
           break;
-          /*
-        case 0xE0:
-        switch((uint8_t)Chip->opcode){
-            case 0x9E:
+
+        case 0xF0:
+          switch ((uint8_t)Chip->opcode) {
+          case 0x07:
+            *data1 = Chip->delay_timer;
+            break;
+          case 0x0A:
+            // Keyop
+            break;
+          case 0x15:
+            Chip->delay_timer = *data1;
+            break;
+          case 0x18:
+            Chip->sound_timer = *data1;
+            break;
+          case 0x1E:
+            Chip->index += *data1;
+            break;
+          case 0x29:
+            // access font at VX
+            Chip->index = Chip->memory[0x050 + (*data1 & 0x01) * 5];
+            break;
+          case 0x33:
+            // store bcd of VX at index, index+1, index+2
+            // NEEDS TESTING
+            bcdint = *data1;
+            for (int i = 0; i < 3; ++i) {
+              Chip->memory[Chip->index + i] = (uint8_t)(bcdint % 10);
+              bcdint /= 10;
+            }
+            break;
+          case 0x55:
+            // memory dump from V0 to VX inlcuding VX
+            for (int i = 0; i <= regi1; ++i) {
+              Chip->memory[Chip->index + i] = Chip->registers[i];
+            }
+            break;
+          case 0x65:
+            // Write from memeory V0 to VX inlcuding VX
+            for (int i = 0; i <= regi1; ++i) {
+              Chip->registers[i] = Chip->memory[Chip->index + i];
+            }
 
             break;
-            case 0xA1:
-            break;
-          }*/
+          }
+          break;
         }
       }
+
+      /*
+  case 0xE0:
+  switch((uint8_t)Chip->opcode){
+      case 0x9E:
+
+      break;
+      case 0xA1:
+      break;
+      */
 
       //  printf("%04X ", Chip->opcode);
       // printf("\n")
