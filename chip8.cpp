@@ -1,9 +1,11 @@
 // TODO: after jump to F70, 1F70 code, it is giving 0000 as hexes
 
 #include "SDL_lib.h"
+#include <SDL2/SDL_events.h>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <stack>
@@ -104,11 +106,21 @@ void loop(chip8 *Chip) {
     // Main loop flag
     bool quit = false;
 
-    // variables used in cases
+    std::srand(std::time(0));
+
+    // used in cases
+    uint8_t firstNumber;
+    uint8_t regi1;
+    uint8_t regi2;
+    uint8_t *data1;
+    uint8_t *data2;
     uint8_t x;
     uint8_t y;
     uint8_t N;
     int bcdint;
+    // for keypress
+    SDL_Event event;
+    bool press;
 
     // Event handler
     SDL_Event e;
@@ -124,7 +136,7 @@ void loop(chip8 *Chip) {
       if (Chip->sound_timer > 0) {
         --Chip->sound_timer;
       }
-      for (int i = 0; i < 1; i++) {
+      for (int i = 0; i < 600; i++) {
         // fetch
         // combine the 2 8 bit halves of the instruction
         Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
@@ -132,12 +144,14 @@ void loop(chip8 *Chip) {
         Chip->pc += 2;
 
         //  decode
-        uint8_t firstNumber = (Chip->opcode >> 8) & 0xF0;
-        uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
-        uint8_t regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
-        uint8_t *data1 = &(Chip->registers[regi1]);
-        uint8_t *data2 = &(Chip->registers[regi2]);
-        // printf("First Number: %02X Full: %04X\n", firstNumber, Chip->opcode);
+        firstNumber = (Chip->opcode >> 8) & 0xF0;
+        regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
+        regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
+        data1 = &(Chip->registers[regi1]);
+        data2 = &(Chip->registers[regi2]);
+
+        // printf("Full: %04X\n", Chip->opcode);
+
         switch (firstNumber) {
         case 0x00:
           switch (Chip->opcode) {
@@ -148,6 +162,8 @@ void loop(chip8 *Chip) {
           case 0x00EE:
             Chip->pc = Chip->stack.top();
             (Chip->stack).pop();
+            // std::cout << "Stack Top" << std::hex << Chip->stack.top()
+            //           << std::endl;
             break;
           }
           break;
@@ -157,8 +173,8 @@ void loop(chip8 *Chip) {
           break;
 
         case 0x20:
+          Chip->stack.push(Chip->pc & 0x0FFF);
           Chip->pc = Chip->opcode & 0x0FFF;
-          Chip->stack.push(Chip->opcode & 0x0FFF);
           break;
 
         case 0x30:
@@ -189,6 +205,7 @@ void loop(chip8 *Chip) {
         case 0x70:
           *data1 += (uint8_t)(Chip->opcode);
           break;
+
         case 0x80:
           switch ((uint8_t)(Chip->opcode & 0x000F)) {
           case 0x00:
@@ -251,6 +268,13 @@ void loop(chip8 *Chip) {
           Chip->index = Chip->opcode & 0x0FFF;
           break;
 
+        case 0xB0:
+          Chip->pc = Chip->registers[0] + Chip->opcode & 0x0FFF;
+          break;
+
+        case 0xC0:
+          *data1 = std::rand() % 256 & (uint8_t)Chip->opcode;
+          break;
         case 0xD0:
           // draw command
           render = true;
@@ -302,13 +326,97 @@ void loop(chip8 *Chip) {
           }
           break;
 
+        case 0xE0:
+          switch ((uint8_t)Chip->opcode) {
+          case 0x9E:
+            break;
+          case 0xA1:
+            break;
+          }
+          break;
+
         case 0xF0:
           switch ((uint8_t)Chip->opcode) {
           case 0x07:
             *data1 = Chip->delay_timer;
             break;
           case 0x0A:
-            // Keyop
+            // wait for keypress
+            press = false;
+            while (!press) {
+              std::chrono::system_clock::time_point presstimerstart =
+                  std::chrono::high_resolution_clock::now();
+              if (event.type == SDL_KEYUP) {
+                press = true;
+                switch (event.key.keysym.scancode) {
+                case SDL_SCANCODE_1:
+                  *data1 = 1;
+                  break;
+                case SDL_SCANCODE_2:
+                  *data1 = 2;
+                  break;
+                case SDL_SCANCODE_3:
+                  *data1 = 3;
+                  break;
+                case SDL_SCANCODE_4:
+                  *data1 = 4;
+                  break;
+                case SDL_SCANCODE_Q:
+                  *data1 = 5;
+                  break;
+                case SDL_SCANCODE_W:
+                  *data1 = 6;
+                  break;
+                case SDL_SCANCODE_E:
+                  *data1 = 7;
+                  break;
+                case SDL_SCANCODE_R:
+                  *data1 = 8;
+                  break;
+                case SDL_SCANCODE_A:
+                  *data1 = 9;
+                  break;
+                case SDL_SCANCODE_S:
+                  *data1 = 10;
+                  break;
+                case SDL_SCANCODE_D:
+                  *data1 = 11;
+                  break;
+                case SDL_SCANCODE_F:
+                  *data1 = 12;
+                  break;
+                case SDL_SCANCODE_Z:
+                  *data1 = 13;
+                  break;
+                case SDL_SCANCODE_X:
+                  *data1 = 14;
+                  break;
+                case SDL_SCANCODE_C:
+                  *data1 = 15;
+                  break;
+                case SDL_SCANCODE_V:
+                  *data1 = 16;
+                  break;
+                default:
+                  press = false;
+                  break;
+                }
+              }
+              std::chrono::system_clock::time_point presstimerend =
+                  std::chrono::high_resolution_clock::now();
+              long presswaittime =
+                  std::chrono::duration_cast<std::chrono::microseconds>(
+                      presstimerend - presstimerstart)
+                      .count();
+              std::this_thread::sleep_for(
+                  std::chrono::milliseconds(1000 / 60 - presswaittime));
+              if (Chip->delay_timer > 0) {
+                --Chip->delay_timer;
+              }
+              if (Chip->sound_timer > 0) {
+                --Chip->sound_timer;
+              }
+            }
             break;
           case 0x15:
             Chip->delay_timer = *data1;
@@ -328,7 +436,9 @@ void loop(chip8 *Chip) {
             // NEEDS TESTING
             bcdint = *data1;
             for (int i = 0; i < 3; ++i) {
-              Chip->memory[Chip->index + i] = (uint8_t)(bcdint % 10);
+              std::cout << bcdint << std::endl;
+              std::cout << bcdint % 10 << std::endl;
+              Chip->memory[Chip->index + (2 - i)] = (uint8_t)(bcdint % 10);
               bcdint /= 10;
             }
             break;
@@ -350,16 +460,6 @@ void loop(chip8 *Chip) {
         }
       }
 
-      /*
-  case 0xE0:
-  switch((uint8_t)Chip->opcode){
-      case 0x9E:
-
-      break;
-      case 0xA1:
-      break;
-      */
-
       //  printf("%04X ", Chip->opcode);
       // printf("\n")
       while (SDL_PollEvent(&e) != 0) {
@@ -373,8 +473,7 @@ void loop(chip8 *Chip) {
                           timerend - timerstart)
                           .count();
       // for 60fps
-      std::this_thread::sleep_for(
-          std::chrono::milliseconds(1000 / 60 - waittime));
+      std::this_thread::sleep_for(std::chrono::milliseconds(100 - waittime));
 
       if (render) {
         render = false;
