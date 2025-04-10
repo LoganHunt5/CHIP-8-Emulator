@@ -2,6 +2,7 @@
 
 #include "SDL_lib.h"
 #include <SDL2/SDL_events.h>
+#include <SDL2/SDL_scancode.h>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include <iostream>
 #include <stack>
 #include <thread>
+#include <unordered_map>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_render.h>
@@ -36,7 +38,7 @@ public:
   uint8_t sound_timer{};
   uint8_t registers[16]{};
   // to hold a hex color value, 0x00000000 or 0xFFFFFFFF
-  uint32_t video[32 * 64]{};
+  uint32_t video[32 * 64]{0x00000000};
   uint16_t opcode{};
 };
 
@@ -75,7 +77,6 @@ bool loadFont(chip8 *Chip) {
   uint16_t inc = 0x050;
   for (auto x : tempfont) {
     Chip->memory[inc] = x;
-    std::cout << std::hex << inc << '\n';
     ++inc;
   }
   return true;
@@ -106,7 +107,23 @@ void loop(chip8 *Chip) {
   } else {
     // Main loop flag
     bool quit = false;
-
+    std::unordered_map<int, uint8_t> keytable;
+    keytable[(int)SDL_SCANCODE_1] = 0x01;
+    keytable[(int)SDL_SCANCODE_2] = 0x02;
+    keytable[(int)SDL_SCANCODE_3] = 0x03;
+    keytable[(int)SDL_SCANCODE_4] = 0x0C;
+    keytable[(int)SDL_SCANCODE_Q] = 0x04;
+    keytable[(int)SDL_SCANCODE_W] = 0x05;
+    keytable[(int)SDL_SCANCODE_E] = 0x06;
+    keytable[(int)SDL_SCANCODE_R] = 0x0D;
+    keytable[(int)SDL_SCANCODE_A] = 0x07;
+    keytable[(int)SDL_SCANCODE_S] = 0x08;
+    keytable[(int)SDL_SCANCODE_D] = 0x09;
+    keytable[(int)SDL_SCANCODE_F] = 0x0E;
+    keytable[(int)SDL_SCANCODE_Z] = 0x0A;
+    keytable[(int)SDL_SCANCODE_X] = 0x00;
+    keytable[(int)SDL_SCANCODE_C] = 0x0B;
+    keytable[(int)SDL_SCANCODE_V] = 0x0F;
     std::srand(std::time(0));
 
     // used in cases
@@ -137,7 +154,13 @@ void loop(chip8 *Chip) {
       if (Chip->sound_timer > 0) {
         --Chip->sound_timer;
       }
-      for (int i = 0; i < 1; i++) {
+      while (!render) {
+        while (SDL_PollEvent(&e) != 0) {
+          if (e.type == SDL_QUIT) {
+            quit = true;
+            render = true;
+          }
+        }
         // fetch
         // combine the 2 8 bit halves of the instruction
         Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
@@ -157,7 +180,7 @@ void loop(chip8 *Chip) {
         case 0x00:
           switch (Chip->opcode) {
           case 0x00E0:
-            SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
+            SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
             SDL_RenderClear(gRenderer);
             break;
           case 0x00EE:
@@ -289,7 +312,7 @@ void loop(chip8 *Chip) {
 
           // printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
           //       Chip->index, x, y, N);
-          for (int row = 0; row < N; row++) {
+          for (int row = 0; row < N; ++row) {
             uint8_t spriteRow = Chip->memory[Chip->index + row];
             // printf("Sprite Row: %X\n", spriteRow);
 
@@ -303,7 +326,7 @@ void loop(chip8 *Chip) {
               uint32_t *screenPixel =
                   &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
 
-              uint8_t spriteCur = (((spriteRow >> (7 - col)) & 0x01) == 0x01);
+              uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
               // printf("%X ", spriteCur);
               // collision
               if (spriteCur && (*screenPixel == 0xFFFFFFFF)) {
@@ -315,11 +338,11 @@ void loop(chip8 *Chip) {
 
               if (*screenPixel == 0xFFFFFFFF) {
                 // printf("drawing at %d, %d ", col + x, row + y);
-                SDL_SetRenderDrawColor(gRenderer, 91, 222, 139, 255);
+                SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
                 SDL_RenderDrawPoint(gRenderer, col + x, row + y);
               } else {
-                SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
-                SDL_RenderDrawPoint(gRenderer, (int)(col + x), (int)(row + y));
+                SDL_SetRenderDrawColor(gRenderer, 170, 153, 153, 255);
+                SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
               }
             }
 
@@ -330,8 +353,22 @@ void loop(chip8 *Chip) {
         case 0xE0:
           switch ((uint8_t)Chip->opcode) {
           case 0x9E:
+            SDL_PollEvent(&event);
+            if (keytable.find((int)event.key.keysym.scancode) !=
+                keytable.end()) {
+              if ((*data1 & 0x0F) == keytable[(int)event.key.keysym.scancode]) {
+                Chip->pc += 2;
+              }
+            }
             break;
           case 0xA1:
+            SDL_PollEvent(&event);
+            if (keytable.find((int)event.key.keysym.scancode) !=
+                keytable.end()) {
+              if ((*data1 & 0x0F) != keytable[(int)event.key.keysym.scancode]) {
+                Chip->pc += 2;
+              }
+            }
             break;
           }
           break;
@@ -344,88 +381,26 @@ void loop(chip8 *Chip) {
           case 0x0A:
             // wait for keypress
             press = false;
-            SDL_RenderPresent(gRenderer);
             while (!press) {
               std::chrono::system_clock::time_point presstimerstart =
                   std::chrono::high_resolution_clock::now();
-              if (SDL_PollEvent(&event) != 0) {
-                if (event.type == SDL_QUIT) {
-                  quit = true;
-                  break;
-                }
-                // std::cout << "scancode: " << event.key.keysym.scancode
-                //           << std::endl;
-                switch (event.key.keysym.scancode) {
-                case SDL_SCANCODE_1:
-                  *data1 = 1;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_2:
-                  *data1 = 2;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_3:
-                  *data1 = 3;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_4:
-                  *data1 = 4;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_Q:
-                  *data1 = 5;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_W:
-                  *data1 = 6;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_E:
-                  *data1 = 7;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_R:
-                  *data1 = 8;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_A:
-                  *data1 = 9;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_S:
-                  *data1 = 10;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_D:
-                  *data1 = 11;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_F:
-                  *data1 = 12;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_Z:
-                  *data1 = 13;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_X:
-                  *data1 = 14;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_C:
-                  *data1 = 15;
-                  press = true;
-                  break;
-                case SDL_SCANCODE_V:
-                  *data1 = 16;
-                  press = true;
-                  break;
-                }
+              SDL_PollEvent(&event);
+              if (event.type == SDL_QUIT) {
+                quit = true;
+                press = true;
+                break;
+              }
+              // std::cout << "scancode: " << event.key.keysym.scancode
+              //           << std::endl;
+              if (keytable.find((int)event.key.keysym.scancode) !=
+                  keytable.end()) {
+                *data1 = keytable[(int)event.key.keysym.scancode];
+                press = true;
               }
               std::chrono::system_clock::time_point presstimerend =
                   std::chrono::high_resolution_clock::now();
               long presswaittime =
-                  std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::duration_cast<std::chrono::milliseconds>(
                       presstimerend - presstimerstart)
                       .count();
               std::this_thread::sleep_for(
@@ -482,23 +457,16 @@ void loop(chip8 *Chip) {
 
       //  printf("%04X ", Chip->opcode);
       // printf("\n")
-      while (SDL_PollEvent(&e) != 0) {
-        if (e.type == SDL_QUIT) {
-          quit = true;
-        }
-      }
       std::chrono::system_clock::time_point timerend =
           std::chrono::high_resolution_clock::now();
-      long waittime = std::chrono::duration_cast<std::chrono::microseconds>(
+      long waittime = std::chrono::duration_cast<std::chrono::milliseconds>(
                           timerend - timerstart)
                           .count();
       // for 60fps
-      std::this_thread::sleep_for(std::chrono::milliseconds(25 - waittime));
+      std::this_thread::sleep_for(
+          std::chrono::milliseconds(1000 / 20 - waittime));
 
-      if (render) {
-        render = false;
-        SDL_RenderPresent(gRenderer);
-      }
+      SDL_RenderPresent(gRenderer);
     }
   }
 }
@@ -514,19 +482,17 @@ bool init() {
     // create
     gWindow = SDL_CreateWindow("CHIP-8", 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
     gRenderer = SDL_CreateRenderer(gWindow, -1, 0);
-    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 255);
-    SDL_RenderClear(gRenderer);
-    SDL_SetRenderDrawColor(gRenderer, 91, 222, 139, 255);
-    SDL_RenderPresent(gRenderer);
 
     SDL_DisplayMode DM;
     SDL_GetCurrentDisplayMode(0, &DM);
     float userWidth = DM.w;
     float userHeight = DM.h;
-    SDL_RenderSetScale(gRenderer, (userWidth) / SCREEN_WIDTH,
-                       (userHeight) / SCREEN_HEIGHT);
-    SDL_SetWindowSize(gWindow, (userWidth) / SCREEN_WIDTH * SCREEN_WIDTH,
-                      (userHeight) / SCREEN_HEIGHT * SCREEN_HEIGHT);
+    SDL_RenderSetScale(gRenderer, (userWidth - 100) / SCREEN_WIDTH,
+                       (userHeight - 100) / SCREEN_HEIGHT);
+    SDL_SetWindowSize(gWindow, userWidth - 100, userHeight - 100);
+    SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
+    SDL_RenderClear(gRenderer);
+    SDL_RenderPresent(gRenderer);
 
     if (gWindow == NULL || gRenderer == NULL) {
       printf("Window could not be shown. %s\n", SDL_GetError());
