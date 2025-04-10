@@ -9,7 +9,7 @@ OBJ = chip8.o
 
 LIB = -lSDL2
 
-GAME = test_opcode.ch8
+GAME = RPS.ch8
 
 OUTPUT = chip8
 

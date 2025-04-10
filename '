@@ -349,76 +349,64 @@ void loop(chip8 *Chip) {
               std::chrono::system_clock::time_point presstimerstart =
                   std::chrono::high_resolution_clock::now();
               if (SDL_PollEvent(&event) != 0) {
+                press = true;
                 if (event.type == SDL_QUIT) {
                   quit = true;
                   break;
                 }
-                // std::cout << "scancode: " << event.key.keysym.scancode
-                //           << std::endl;
+                std::cout << "scancode: " << event.key.keysym.scancode
+                          << std::endl;
                 switch (event.key.keysym.scancode) {
                 case SDL_SCANCODE_1:
                   *data1 = 1;
-                  press = true;
                   break;
                 case SDL_SCANCODE_2:
                   *data1 = 2;
-                  press = true;
                   break;
                 case SDL_SCANCODE_3:
                   *data1 = 3;
-                  press = true;
                   break;
                 case SDL_SCANCODE_4:
                   *data1 = 4;
-                  press = true;
                   break;
                 case SDL_SCANCODE_Q:
                   *data1 = 5;
-                  press = true;
                   break;
                 case SDL_SCANCODE_W:
                   *data1 = 6;
-                  press = true;
                   break;
                 case SDL_SCANCODE_E:
                   *data1 = 7;
-                  press = true;
                   break;
                 case SDL_SCANCODE_R:
                   *data1 = 8;
-                  press = true;
                   break;
                 case SDL_SCANCODE_A:
                   *data1 = 9;
-                  press = true;
                   break;
                 case SDL_SCANCODE_S:
                   *data1 = 10;
-                  press = true;
                   break;
                 case SDL_SCANCODE_D:
                   *data1 = 11;
-                  press = true;
                   break;
                 case SDL_SCANCODE_F:
                   *data1 = 12;
-                  press = true;
                   break;
                 case SDL_SCANCODE_Z:
                   *data1 = 13;
-                  press = true;
                   break;
                 case SDL_SCANCODE_X:
                   *data1 = 14;
-                  press = true;
                   break;
                 case SDL_SCANCODE_C:
                   *data1 = 15;
-                  press = true;
                   break;
                 case SDL_SCANCODE_V:
                   *data1 = 16;
-                  press = true;
+                  break;
+                default:
+                  press = false;
                   break;
                 }
               }
