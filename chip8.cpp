@@ -138,7 +138,9 @@ void loop(chip8 *Chip) {
     int bcdint;
     bool overflow;
     bool underflow;
+    bool collision;
     uint8_t carryout;
+    int cycles;
     // for keypress
     SDL_Event event;
     bool press;
@@ -157,7 +159,9 @@ void loop(chip8 *Chip) {
       if (Chip->sound_timer > 0) {
         --Chip->sound_timer;
       }
-      while (!render) {
+      cycles = 0;
+      while (!render && cycles < 10) {
+        cycles++;
         while (SDL_PollEvent(&e) != 0) {
           if (e.type == SDL_QUIT) {
             quit = true;
@@ -183,6 +187,8 @@ void loop(chip8 *Chip) {
         case 0x00:
           switch (Chip->opcode) {
           case 0x00E0:
+            //            puts("clearing");
+            memset(Chip->video, 0x00000000, sizeof(Chip->video));
             SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
             SDL_RenderClear(gRenderer);
             break;
@@ -328,11 +334,14 @@ void loop(chip8 *Chip) {
           N = (uint8_t)(Chip->opcode) & 0x0F;
           // printf("x: %X\n", x);
           // VF keeps track of collision in sprites
-          Chip->registers[0x0F] = 0;
 
-          // printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
-          //       Chip->index, x, y, N);
-          for (int row = 0; row < N; ++row) {
+          Chip->registers[0x0F] = 0;
+          //          printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
+          //                 Chip->index, x, y, N);
+          for (int row = 0; row < N; row++) {
+            if (row + y > SCREEN_HEIGHT) {
+              break;
+            }
             uint8_t spriteRow = Chip->memory[Chip->index + row];
             // printf("Sprite Row: %X\n", spriteRow);
 
@@ -347,26 +356,30 @@ void loop(chip8 *Chip) {
                   &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
 
               uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
-              // printf("%X ", spriteCur);
+              //              printf("%X ", spriteCur);
               // collision
-              if (spriteCur && (*screenPixel == 0xFFFFFFFF)) {
-                *screenPixel = 0x00000000;
-                Chip->registers[0x0F] = 1;
-              } else if (spriteCur) {
-                *screenPixel ^= 0xFFFFFFFF;
+              if (spriteCur) {
+                if (*screenPixel == 0xFFFFFFFF) {
+                  *screenPixel = 0x00000000;
+                  Chip->registers[0x0F] = 1;
+                } else {
+                  *screenPixel = 0xFFFFFFFF;
+                }
               }
+              // else {
+              //*screenPixel = 0x00000000;
+              //}
 
               if (*screenPixel == 0xFFFFFFFF) {
                 // printf("drawing at %d, %d ", col + x, row + y);
-                SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
+                SDL_SetRenderDrawColor(gRenderer, 170, 153, 153, 255);
                 SDL_RenderDrawPoint(gRenderer, col + x, row + y);
               } else {
-                SDL_SetRenderDrawColor(gRenderer, 170, 153, 153, 255);
+                SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
                 SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
               }
             }
-
-            // puts("");
+            //           puts("");
           }
           break;
 
@@ -441,18 +454,17 @@ void loop(chip8 *Chip) {
             break;
           case 0x1E:
             Chip->index += *data1;
+            Chip->index = Chip->index & 0x0FFF;
             break;
           case 0x29:
             // access font at VX
-            Chip->index = Chip->memory[0x050 + (*data1 & 0x0F) * 5];
+            Chip->index = 0x050 + (*data1 & 0x0F) * 5;
             break;
           case 0x33:
             // store bcd of VX at index, index+1, index+2
             // NEEDS TESTING
             bcdint = *data1;
             for (int i = 0; i < 3; ++i) {
-              std::cout << bcdint << std::endl;
-              std::cout << bcdint % 10 << std::endl;
               Chip->memory[Chip->index + (2 - i)] = (uint8_t)(bcdint % 10);
               bcdint /= 10;
             }
@@ -484,7 +496,7 @@ void loop(chip8 *Chip) {
                           .count();
       // for 60fps
       std::this_thread::sleep_for(
-          std::chrono::milliseconds(1000 / 20 - waittime));
+          std::chrono::milliseconds(1000 / 60 - waittime));
 
       SDL_RenderPresent(gRenderer);
     }
