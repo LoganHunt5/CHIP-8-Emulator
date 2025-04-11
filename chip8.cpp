@@ -2,6 +2,7 @@
 
 #include "SDL_lib.h"
 #include <SDL2/SDL_events.h>
+#include <SDL2/SDL_keyboard.h>
 #include <SDL2/SDL_scancode.h>
 #include <chrono>
 #include <cstdint>
@@ -124,6 +125,24 @@ void loop(chip8 *Chip) {
     keytable[(int)SDL_SCANCODE_X] = 0x00;
     keytable[(int)SDL_SCANCODE_C] = 0x0B;
     keytable[(int)SDL_SCANCODE_V] = 0x0F;
+
+    int tablekey[17];
+    tablekey[0x01] = (int)SDL_SCANCODE_1;
+    tablekey[0x02] = (int)SDL_SCANCODE_2;
+    tablekey[0x03] = (int)SDL_SCANCODE_3;
+    tablekey[0x0C] = (int)SDL_SCANCODE_4;
+    tablekey[0x04] = (int)SDL_SCANCODE_Q;
+    tablekey[0x05] = (int)SDL_SCANCODE_W;
+    tablekey[0x06] = (int)SDL_SCANCODE_E;
+    tablekey[0x0D] = (int)SDL_SCANCODE_R;
+    tablekey[0x07] = (int)SDL_SCANCODE_A;
+    tablekey[0x08] = (int)SDL_SCANCODE_S;
+    tablekey[0x09] = (int)SDL_SCANCODE_D;
+    tablekey[0x0E] = (int)SDL_SCANCODE_F;
+    tablekey[0x0A] = (int)SDL_SCANCODE_Z;
+    tablekey[0x00] = (int)SDL_SCANCODE_X;
+    tablekey[0x0B] = (int)SDL_SCANCODE_C;
+    tablekey[0x0F] = (int)SDL_SCANCODE_V;
     std::srand(std::time(0));
 
     // used in cases
@@ -141,6 +160,7 @@ void loop(chip8 *Chip) {
     bool collision;
     uint8_t carryout;
     int cycles;
+    const uint8_t *keyboardstate = SDL_GetKeyboardState(NULL);
     // for keypress
     SDL_Event event;
     bool press;
@@ -377,24 +397,20 @@ void loop(chip8 *Chip) {
         case 0xE0:
           switch ((uint8_t)Chip->opcode) {
           case 0x9E:
-            SDL_PollEvent(&event);
-            if (keytable.find((int)event.key.keysym.scancode) !=
-                keytable.end()) {
-              if ((*data1 & 0x0F) == keytable[(int)event.key.keysym.scancode]) {
-                Chip->pc += 2;
-              }
+            // increment if key pressed is same as
+            SDL_PumpEvents();
+            if (keyboardstate[tablekey[*data1]] == 1) {
+              Chip->pc += 2;
             }
             break;
           case 0xA1:
-            SDL_PollEvent(&event);
-            if (keytable.find((int)event.key.keysym.scancode) !=
-                keytable.end()) {
-              if ((*data1 & 0x0F) != keytable[(int)event.key.keysym.scancode]) {
-                Chip->pc += 2;
-              }
+            SDL_PumpEvents();
+            // printf("EXA1: %d\n", keyboardstate[SDL_SCANCODE_V]);
+            if (keyboardstate[tablekey[*data1]] == 0) {
+              Chip->pc += 2;
             }
-            break;
           }
+          break;
           break;
 
         case 0xF0:
@@ -408,18 +424,19 @@ void loop(chip8 *Chip) {
             while (!press) {
               std::chrono::system_clock::time_point presstimerstart =
                   std::chrono::high_resolution_clock::now();
-              SDL_PollEvent(&event);
-              if (event.type == SDL_QUIT) {
-                quit = true;
-                press = true;
-                break;
-              }
-              // std::cout << "scancode: " << event.key.keysym.scancode
-              //           << std::endl;
-              if (keytable.find((int)event.key.keysym.scancode) !=
-                  keytable.end()) {
-                *data1 = keytable[(int)event.key.keysym.scancode];
-                press = true;
+              if (SDL_PollEvent(&event) != 0) {
+                if (event.type == SDL_QUIT) {
+                  quit = true;
+                  press = true;
+                  break;
+                }
+                // std::cout << "scancode: " << event.key.keysym.scancode
+                //           << std::endl;
+                if (keytable.find((int)event.key.keysym.scancode) !=
+                    keytable.end()) {
+                  *data1 = keytable[(int)event.key.keysym.scancode];
+                  press = true;
+                }
               }
               std::chrono::system_clock::time_point presstimerend =
                   std::chrono::high_resolution_clock::now();
