@@ -9,7 +9,7 @@ OBJ = chip8.o
 
 LIB = -lSDL2
 
-GAME = RPS.ch8
+GAME = Rocket.ch8
 
 OUTPUT = chip8
 

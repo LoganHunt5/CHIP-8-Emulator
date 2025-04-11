@@ -1,4 +1,4 @@
-// TODO: after jump to F70, 1F70 code, it is giving 0000 as hexes
+// TODO Working on 8XY4
 
 #include "SDL_lib.h"
 #include <SDL2/SDL_events.h>
@@ -136,6 +136,9 @@ void loop(chip8 *Chip) {
     uint8_t y;
     uint8_t N;
     int bcdint;
+    bool overflow;
+    bool underflow;
+    uint8_t carryout;
     // for keypress
     SDL_Event event;
     bool press;
@@ -245,39 +248,56 @@ void loop(chip8 *Chip) {
             *data1 ^= *data2;
             break;
           case 0x04:
-            // VF set to 0 if overflow
-            Chip->registers[0x0F] = 0;
-            if ((*data2 > 0) && (*data1 > UINT8_MAX - *data1)) {
-              Chip->registers[0x0F] = 1;
+            // VF set to 1 if overflow
+            overflow = false;
+            if (((uint16_t)*data1 + (uint16_t)*data2) > 0x00FF) {
+              overflow = true;
             }
             *data1 += *data2;
+            if (overflow) {
+              Chip->registers[0x0F] = 1;
+            } else {
+              Chip->registers[0x0F] = 0;
+            }
             break;
           case 0x05:
             // VF set to 0 if underflow
-            Chip->registers[0x0F] = 1;
+            underflow = false;
             if (*data1 < *data2) {
-              Chip->registers[0x0F] = 0;
+              underflow = true;
             }
             *data1 -= *data2;
+            if (underflow) {
+              Chip->registers[0x0F] = 0;
+            } else {
+              Chip->registers[0x0F] = 1;
+            }
             break;
           case 0x06:
             // store least significant then bit shift by 1
-            Chip->registers[0x0F] = *data1 & 0x01;
+            carryout = *data1 & 0x01;
             *data1 >>= 1;
+            Chip->registers[0x0F] = carryout;
             break;
           case 0x07:
             // VF set to 0 if underflow
-            Chip->registers[0x0F] = 1;
+            underflow = false;
             if (*data1 > *data2) {
-              Chip->registers[0x0F] = 0;
+              underflow = true;
             }
             *data1 = *data2 - *data1;
+            if (underflow) {
+              Chip->registers[0x0F] = 0;
+            } else {
+              Chip->registers[0x0F] = 1;
+            }
             break;
           case 0x0E:
             // store least significant then bit shift by 1
             // POSSIBLE BUG didn't really rhingk about it
-            Chip->registers[0x0F] = *data1 >> 7;
+            carryout = *data1 >> 7;
             *data1 <<= 1;
+            Chip->registers[0x0F] = carryout;
             break;
           }
           break;
