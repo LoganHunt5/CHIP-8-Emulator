@@ -6,3 +6,4 @@
 
 bool init();
 void close();
+void renderDraw(bool clear, bool on);

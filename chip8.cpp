@@ -189,8 +189,7 @@ void loop(chip8 *Chip) {
           case 0x00E0:
             //            puts("clearing");
             memset(Chip->video, 0x00000000, sizeof(Chip->video));
-            SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
-            SDL_RenderClear(gRenderer);
+            renderDraw(true, false);
             break;
           case 0x00EE:
             Chip->pc = Chip->stack.top();
@@ -362,20 +361,12 @@ void loop(chip8 *Chip) {
                 if (*screenPixel == 0xFFFFFFFF) {
                   *screenPixel = 0x00000000;
                   Chip->registers[0x0F] = 1;
+                  renderDraw(false, false);
                 } else {
                   *screenPixel = 0xFFFFFFFF;
+                  renderDraw(false, true);
+                  // printf("drawing at %d, %d ", col + x, row + y);
                 }
-              }
-              // else {
-              //*screenPixel = 0x00000000;
-              //}
-
-              if (*screenPixel == 0xFFFFFFFF) {
-                // printf("drawing at %d, %d ", col + x, row + y);
-                SDL_SetRenderDrawColor(gRenderer, 170, 153, 153, 255);
-                SDL_RenderDrawPoint(gRenderer, col + x, row + y);
-              } else {
-                SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
                 SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
               }
             }
@@ -522,8 +513,7 @@ bool init() {
     SDL_RenderSetScale(gRenderer, (userWidth - 100) / SCREEN_WIDTH,
                        (userHeight - 100) / SCREEN_HEIGHT);
     SDL_SetWindowSize(gWindow, userWidth - 100, userHeight - 100);
-    SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
-    SDL_RenderClear(gRenderer);
+    renderDraw(true, false);
     SDL_RenderPresent(gRenderer);
 
     if (gWindow == NULL || gRenderer == NULL) {
@@ -532,6 +522,18 @@ bool init() {
     }
   }
   return success;
+}
+
+// just sets the color or clears
+void renderDraw(bool clear, bool on) {
+  if (!on || clear) {
+    SDL_SetRenderDrawColor(gRenderer, 170, 153, 153, 255);
+  } else {
+    SDL_SetRenderDrawColor(gRenderer, 34, 0, 0, 255);
+  }
+  if (clear) {
+    SDL_RenderClear(gRenderer);
+  }
 }
 
 void close() {
