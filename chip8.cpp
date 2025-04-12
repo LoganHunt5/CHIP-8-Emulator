@@ -18,9 +18,9 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_video.h>
 
-// Screen dimension constants
-const int SCREEN_WIDTH = 64;
-const int SCREEN_HEIGHT = 32;
+// Screen dimensions (not constant)
+int SCREEN_WIDTH = 64;
+int SCREEN_HEIGHT = 32;
 
 // globals
 // Window
@@ -42,7 +42,7 @@ public:
   uint8_t sound_timer{};
   uint8_t registers[16]{};
   // to hold a hex color value, 0x00000000 or 0xFFFFFFFF
-  uint32_t video[32 * 64]{0x00000000};
+  uint32_t video[64 * 128]{0x00000000};
   uint16_t opcode{};
 };
 
@@ -156,11 +156,12 @@ void loop(chip8 *Chip) {
     uint8_t *data2;
     uint8_t x;
     uint8_t y;
-    uint8_t N;
+    int N;
     int bcdint;
     bool overflow;
     bool underflow;
     bool collision;
+    bool left16;
     uint8_t carryout;
     int cycles;
     const uint8_t *keyboardstate = SDL_GetKeyboardState(NULL);
@@ -203,13 +204,26 @@ void loop(chip8 *Chip) {
         regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
         data1 = &(Chip->registers[regi1]);
         data2 = &(Chip->registers[regi2]);
-        /*
-        if (Chip->index == 0x00AC) {
+
+        if (Chip->opcode == 0x00FF) {
           printf("Full: %04X\n", Chip->opcode);
         }
-        */
+
         switch (firstNumber) {
         case 0x00:
+          switch (Chip->opcode >> 4) {
+          case 0x000C:
+            // scroll down N pixels
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
+            break;
+          }
           switch (Chip->opcode) {
           case 0x00E0:
             //            puts("clearing");
@@ -222,11 +236,68 @@ void loop(chip8 *Chip) {
             // std::cout << "Stack Top" << std::hex << Chip->stack.top()
             //           << std::endl;
             break;
+          case 0x00FB:
+            // scroll right 4 pixels
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
+            break;
+          case 0x00FC:
+            // scroll left 4 pixels
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
+            break;
+          case 0x00FD:
+            // lores toggle
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              close();
+              quit = true;
+              break;
+            }
+            break;
           case 0x00FE:
             // lores toggle
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              SCREEN_HEIGHT = 32;
+              SCREEN_WIDTH = 64;
+              resize();
+              break;
+            }
             break;
           case 0x00FF:
             // hires toggle
+            switch (chipType) {
+            case (0):
+              break;
+            case (1):
+            case (2):
+            case (3):
+              SCREEN_HEIGHT = 64;
+              SCREEN_WIDTH = 128;
+              resize();
+              break;
+            }
             break;
           }
           break;
@@ -414,53 +485,156 @@ void loop(chip8 *Chip) {
           *data1 = std::rand() % 256 & (uint8_t)Chip->opcode;
           break;
         case 0xD0:
-          // draw command
-          render = true;
-          x = *data1 % SCREEN_WIDTH;
-          y = *data2 % SCREEN_HEIGHT;
-          // height
-          N = (uint8_t)(Chip->opcode) & 0x0F;
-          // printf("x: %X\n", x);
-          // VF keeps track of collision in sprites
+          switch (chipType) {
+          case 0:
+            // draw command
+            render = true;
+            x = *data1 % SCREEN_WIDTH;
+            y = *data2 % SCREEN_HEIGHT;
+            // height
+            N = (uint8_t)(Chip->opcode) & 0x0F;
+            // printf("x: %X\n", x);
+            // VF keeps track of collision in sprites
 
-          Chip->registers[0x0F] = 0;
-          //          printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n",
-          //                 Chip->index, x, y, N);
-          for (int row = 0; row < N; row++) {
-            if (row + y > SCREEN_HEIGHT) {
-              break;
-            }
-            uint8_t spriteRow = Chip->memory[Chip->index + row];
-            // printf("Sprite Row: %X\n", spriteRow);
-
-            for (int col = 0; col < 8; col++) {
-
-              // POSSIBLE BUG BECAUSE OF SCALE CHANGE IN INIT
-              if (col + x > SCREEN_WIDTH) {
+            Chip->registers[0x0F] = 0;
+            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
+                   Chip->index, x, y, N);
+            for (int row = 0; row < N; row++) {
+              if (row + y > SCREEN_HEIGHT) {
                 break;
               }
+              uint8_t spriteRow = Chip->memory[Chip->index + row];
+              // printf("Sprite Row: %X\n", spriteRow);
 
-              uint32_t *screenPixel =
-                  &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+              for (int col = 0; col < 8; col++) {
 
-              uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
-              //              printf("%X ", spriteCur);
-              // collision
-              if (spriteCur) {
-                if (*screenPixel == 0xFFFFFFFF) {
-                  *screenPixel = 0x00000000;
-                  Chip->registers[0x0F] = 1;
-                  renderDraw(false, false);
-                } else {
-                  *screenPixel = 0xFFFFFFFF;
-                  renderDraw(false, true);
-                  // printf("drawing at %d, %d ", col + x, row + y);
+                // POSSIBLE BUG BECAUSE OF SCALE CHANGE IN INIT
+                if (col + x > SCREEN_WIDTH) {
+                  break;
                 }
-                SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+
+                uint32_t *screenPixel =
+                    &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+
+                uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
+                //              printf("%X ", spriteCur);
+                // collision
+                if (spriteCur) {
+                  if (*screenPixel == 0xFFFFFFFF) {
+                    *screenPixel = 0x00000000;
+                    Chip->registers[0x0F] = 1;
+                    renderDraw(false, false);
+                  } else {
+                    *screenPixel = 0xFFFFFFFF;
+                    renderDraw(false, true);
+                    // printf("drawing at %d, %d ", col + x, row + y);
+                  }
+                  SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+                }
+                //           puts("");
               }
             }
-            //           puts("");
+            break;
+          case 1:
+          case 2:
+          case 3:
+            // draw command
+            render = true;
+            x = *data1 % SCREEN_WIDTH;
+            y = *data2 % SCREEN_HEIGHT;
+            // height
+            N = (int)(Chip->opcode) & 0x0F;
+            // printf("x: %X\n", x);
+            // VF keeps track of collision in sprites
+
+            if (N == 0) {
+              left16 = true;
+            } else {
+              left16 = false;
+            }
+            Chip->registers[0x0F] = 0;
+            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
+                   Chip->index, x, y, N);
+
+            if (left16) {
+              puts("BINTING BIG STPRITE");
+              for (int row = 0; row < 32; row++) {
+                if (row + y > SCREEN_HEIGHT) {
+                  break;
+                }
+                // printf("%X\n", Chip->index + row);
+                uint8_t spriteRow = Chip->memory[Chip->index + row];
+                // printf("Sprite Row: %X\n", spriteRow);
+
+                for (int col = 0; col < 8; col++) {
+                  if (col + x > SCREEN_WIDTH) {
+                    break;
+                  }
+                  uint32_t *screenPixel =
+                      &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+
+                  uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
+                  // printf("%X ", spriteCur);
+                  // collision
+                  if (spriteCur) {
+                    if (*screenPixel == 0xFFFFFFFF) {
+                      *screenPixel = 0x00000000;
+                      Chip->registers[0x0F] = 1;
+                      renderDraw(false, false);
+                    } else {
+                      *screenPixel = 0xFFFFFFFF;
+                      renderDraw(false, true);
+                      // printf("drawing at %d, %d ", col + x, row + y);
+                    }
+                    SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+                  }
+                }
+                // puts("");
+                left16 = !left16;
+                if (left16) {
+                  x += 8;
+                } else {
+                  x -= 8;
+                }
+              }
+            } else {
+              for (int row = 0; row < N; row++) {
+                if (row + y > SCREEN_HEIGHT) {
+                  break;
+                }
+                uint8_t spriteRow = Chip->memory[Chip->index + row];
+                // printf("Sprite Row: %X\n", spriteRow);
+
+                for (int col = 0; col < 8; col++) {
+                  if (col + x > SCREEN_WIDTH) {
+                    break;
+                  }
+
+                  uint32_t *screenPixel =
+                      &(Chip->video[((row + y) * SCREEN_WIDTH) + (col + x)]);
+
+                  uint8_t spriteCur = ((spriteRow >> (7 - col)) & 0x01);
+                  //              printf("%X ", spriteCur);
+                  // collision
+                  if (spriteCur) {
+                    if (*screenPixel == 0xFFFFFFFF) {
+                      *screenPixel = 0x00000000;
+                      Chip->registers[0x0F] = 1;
+                      renderDraw(false, false);
+                    } else {
+                      *screenPixel = 0xFFFFFFFF;
+                      renderDraw(false, true);
+                      // printf("drawing at %d, %d ", col + x, row + y);
+                    }
+                    SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+                  }
+                  //           puts("");
+                }
+              }
+            }
+            break;
           }
+
           break;
 
         case 0xE0:
@@ -633,6 +807,18 @@ bool init() {
     }
   }
   return success;
+}
+
+void resize() {
+  SDL_DisplayMode DM;
+  SDL_GetCurrentDisplayMode(0, &DM);
+  float userWidth = DM.w;
+  float userHeight = DM.h;
+  SDL_SetWindowSize(gWindow, userWidth - 100, userHeight - 100);
+  SDL_RenderSetScale(gRenderer, (userWidth - 100) / SCREEN_WIDTH,
+                     (userHeight - 100) / SCREEN_HEIGHT);
+  renderDraw(true, false);
+  SDL_RenderPresent(gRenderer);
 }
 
 // just sets the color or clears
