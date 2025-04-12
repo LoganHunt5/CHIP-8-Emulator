@@ -244,6 +244,21 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
+              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 1] = 0x00000000;
+              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 2] = 0x00000000;
+              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 3] = 0x00000000;
+              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 4] = 0x00000000;
+              Chip->video[0] = 0x00000000;
+              Chip->video[1] = 0x00000000;
+              Chip->video[2] = 0x00000000;
+              Chip->video[3] = 0x00000000;
+              for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 5;
+                   i <= 4 * SCREEN_WIDTH; i--) {
+
+                if (i % SCREEN_WIDTH < 4) {
+                  Chip->video[i] = 0;
+                }
+              }
               break;
             }
             break;
