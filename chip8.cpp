@@ -28,6 +28,9 @@ SDL_Window *gWindow = NULL;
 //
 SDL_Renderer *gRenderer = NULL;
 
+enum quirkType { CHIP, SUPERCHIPMODERN, SUPERCHIPLEGACY, XOCHIP };
+enum quirkType chipType = SUPERCHIPMODERN;
+
 class chip8 {
 public:
   uint8_t memory[4096]{};
@@ -200,9 +203,11 @@ void loop(chip8 *Chip) {
         regi2 = (uint8_t)((Chip->opcode & 0x00F0) >> 4);
         data1 = &(Chip->registers[regi1]);
         data2 = &(Chip->registers[regi2]);
-
-        // printf("Full: %04X\n", Chip->opcode);
-
+        /*
+        if (Chip->index == 0x00AC) {
+          printf("Full: %04X\n", Chip->opcode);
+        }
+        */
         switch (firstNumber) {
         case 0x00:
           switch (Chip->opcode) {
@@ -216,6 +221,12 @@ void loop(chip8 *Chip) {
             (Chip->stack).pop();
             // std::cout << "Stack Top" << std::hex << Chip->stack.top()
             //           << std::endl;
+            break;
+          case 0x00FE:
+            // lores toggle
+            break;
+          case 0x00FF:
+            // hires toggle
             break;
           }
           break;
@@ -264,12 +275,39 @@ void loop(chip8 *Chip) {
             *data1 = *data2;
             break;
           case 0x01:
+            switch (chipType) {
+            case (0):
+              Chip->registers[0x0F] = 0;
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
             *data1 |= *data2;
             break;
           case 0x02:
+            switch (chipType) {
+            case (0):
+              Chip->registers[0x0F] = 0;
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
             *data1 &= *data2;
             break;
           case 0x03:
+            switch (chipType) {
+            case (0):
+              Chip->registers[0x0F] = 0;
+              break;
+            case (1):
+            case (2):
+            case (3):
+              break;
+            }
             *data1 ^= *data2;
             break;
           case 0x04:
@@ -300,9 +338,20 @@ void loop(chip8 *Chip) {
             break;
           case 0x06:
             // store least significant then bit shift by 1
-            carryout = *data1 & 0x01;
-            *data1 >>= 1;
-            Chip->registers[0x0F] = carryout;
+            switch (chipType) {
+            case (0):
+            case (3):
+              carryout = *data2 & 0x01;
+              *data1 = *data2 >> 1;
+              Chip->registers[0x0F] = carryout;
+              break;
+            case (1):
+            case (2):
+              carryout = *data1 & 0x01;
+              *data1 >>= 1;
+              Chip->registers[0x0F] = carryout;
+              break;
+            }
             break;
           case 0x07:
             // VF set to 0 if underflow
@@ -319,10 +368,21 @@ void loop(chip8 *Chip) {
             break;
           case 0x0E:
             // store least significant then bit shift by 1
-            // POSSIBLE BUG didn't really rhingk about it
-            carryout = *data1 >> 7;
-            *data1 <<= 1;
-            Chip->registers[0x0F] = carryout;
+            switch (chipType) {
+            case (0):
+            case (3):
+              carryout = *data2 >> 7;
+              *data1 = *data2 << 1;
+              Chip->registers[0x0F] = carryout;
+              break;
+            case (1):
+            case (2):
+              carryout = *data1 >> 7;
+              *data1 <<= 1;
+              Chip->registers[0x0F] = carryout;
+              break;
+            }
+
             break;
           }
           break;
@@ -338,7 +398,16 @@ void loop(chip8 *Chip) {
           break;
 
         case 0xB0:
-          Chip->pc = Chip->registers[0] + Chip->opcode & 0x0FFF;
+          switch (chipType) {
+          case (0):
+          case (3):
+            Chip->pc = Chip->registers[0] + Chip->opcode & 0x0FFF;
+            break;
+          case (1):
+          case (2):
+            Chip->pc = *data1 + Chip->opcode & 0x0FFF;
+            break;
+          }
           break;
 
         case 0xC0:
@@ -479,14 +548,39 @@ void loop(chip8 *Chip) {
             break;
           case 0x55:
             // memory dump from V0 to VX inlcuding VX
-            for (int i = 0; i <= regi1; ++i) {
-              Chip->memory[Chip->index + i] = Chip->registers[i];
+            switch (chipType) {
+            case (0):
+            case (3):
+              for (int i = 0; i <= regi1; ++i) {
+                Chip->memory[Chip->index] = Chip->registers[i];
+                ++Chip->index;
+              }
+              break;
+            case (1):
+            case (2):
+              for (int i = 0; i <= regi1; ++i) {
+                Chip->memory[Chip->index + i] = Chip->registers[i];
+              }
+              break;
             }
+
             break;
           case 0x65:
             // Write from memeory V0 to VX inlcuding VX
-            for (int i = 0; i <= regi1; ++i) {
-              Chip->registers[i] = Chip->memory[Chip->index + i];
+            switch (chipType) {
+            case (0):
+            case (3):
+              for (int i = 0; i <= regi1; ++i) {
+                Chip->registers[i] = Chip->memory[Chip->index];
+                ++Chip->index;
+              }
+              break;
+            case (1):
+            case (2):
+              for (int i = 0; i <= regi1; ++i) {
+                Chip->registers[i] = Chip->memory[Chip->index + i];
+              }
+              break;
             }
 
             break;
