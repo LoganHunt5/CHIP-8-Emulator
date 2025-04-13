@@ -52,6 +52,8 @@ bool importGame(char *fn, std::ifstream *file, chip8 *Chip);
 
 void loop(chip8 *Chip);
 
+void redraw(chip8 *Chip);
+
 bool init();
 
 void close();
@@ -205,9 +207,7 @@ void loop(chip8 *Chip) {
         data1 = &(Chip->registers[regi1]);
         data2 = &(Chip->registers[regi2]);
 
-        if (Chip->opcode == 0x00FF) {
-          printf("Full: %04X\n", Chip->opcode);
-        }
+        printf("Full: %04X\n", Chip->opcode);
 
         switch (firstNumber) {
         case 0x00:
@@ -220,6 +220,16 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
+              N = Chip->opcode & 0x000F;
+              for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 1 - SCREEN_WIDTH * N;
+                   i >= 0; i--) {
+                Chip->video[i + SCREEN_WIDTH * N] = Chip->video[i];
+              }
+              for (int i = 0; i < SCREEN_WIDTH * N; i++) {
+                Chip->video[i] = 0x00000000;
+              }
+              renderDraw(true, false);
+              redraw(Chip);
               break;
             }
             break;
@@ -244,21 +254,19 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
-              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 1] = 0x00000000;
-              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 2] = 0x00000000;
-              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 3] = 0x00000000;
-              Chip->video[SCREEN_HEIGHT * SCREEN_WIDTH - 4] = 0x00000000;
+              // puts("right scroll");
+              for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 5; i >= 0; i--) {
+                Chip->video[i + 4] = Chip->video[i];
+                if (i % SCREEN_WIDTH < 4) {
+                  Chip->video[i] = 0x00000000;
+                }
+              }
               Chip->video[0] = 0x00000000;
               Chip->video[1] = 0x00000000;
               Chip->video[2] = 0x00000000;
               Chip->video[3] = 0x00000000;
-              for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 5;
-                   i <= 4 * SCREEN_WIDTH; i--) {
-
-                if (i % SCREEN_WIDTH < 4) {
-                  Chip->video[i] = 0;
-                }
-              }
+              renderDraw(true, false);
+              redraw(Chip);
               break;
             }
             break;
@@ -270,6 +278,19 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
+              // puts("lefts croll");
+              for (int i = 4; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++) {
+                Chip->video[i - 4] = Chip->video[i];
+                if (i % SCREEN_WIDTH > SCREEN_WIDTH - 4) {
+                  Chip->video[i] = 0x00000000;
+                }
+              }
+              Chip->video[SCREEN_WIDTH - 1] = 0x00000000;
+              Chip->video[SCREEN_WIDTH - 2] = 0x00000000;
+              Chip->video[SCREEN_WIDTH - 3] = 0x00000000;
+              Chip->video[SCREEN_WIDTH - 4] = 0x00000000;
+              renderDraw(true, false);
+              redraw(Chip);
               break;
             }
             break;
@@ -512,8 +533,10 @@ void loop(chip8 *Chip) {
             // VF keeps track of collision in sprites
 
             Chip->registers[0x0F] = 0;
-            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
-                   Chip->index, x, y, N);
+            //
+            // printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
+            // Chip->index, x, y, N);
+            //
             for (int row = 0; row < N; row++) {
               if (row + y > SCREEN_HEIGHT) {
                 break;
@@ -568,8 +591,8 @@ void loop(chip8 *Chip) {
               left16 = false;
             }
             Chip->registers[0x0F] = 0;
-            printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
-                   Chip->index, x, y, N);
+            // printf("Drawing Sprite: %X at X: %X, Y: %X, Height: %X\n ",
+            // Chip->index, x, y, N);
 
             if (left16) {
               puts("BINTING BIG STPRITE");
@@ -693,9 +716,15 @@ void loop(chip8 *Chip) {
                 if (keytable.find((int)event.key.keysym.scancode) !=
                     keytable.end()) {
                   *data1 = keytable[(int)event.key.keysym.scancode];
-                  press = true;
+                  while (!press) {
+                    SDL_PumpEvents();
+                    if (keyboardstate[tablekey[*data1]] == 0) {
+                      press = true;
+                    }
+                  }
                 }
               }
+
               std::chrono::system_clock::time_point presstimerend =
                   std::chrono::high_resolution_clock::now();
               long presswaittime =
@@ -848,6 +877,16 @@ void renderDraw(bool clear, bool on) {
   }
 }
 
+void redraw(chip8 *Chip) {
+  renderDraw(false, true);
+  for (int i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++) {
+    //    printf("%d, %d\n", i % SCREEN_WIDTH, i / SCREEN_HEIGHT);
+    if (Chip->video[i] == 0xFFFFFFFF) {
+      SDL_RenderDrawPoint(gRenderer, i % SCREEN_WIDTH, i / SCREEN_WIDTH);
+    }
+  }
+  SDL_RenderPresent(gRenderer);
+}
 void close() {
   SDL_DestroyRenderer(gRenderer);
   SDL_DestroyWindow(gWindow);
