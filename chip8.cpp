@@ -1,4 +1,4 @@
-// TODO Working on 8XY4
+// TODO VF incremented for every row that is past bot of screen
 
 #include "SDL_lib.h"
 #include <SDL2/SDL_events.h>
@@ -166,6 +166,7 @@ void loop(chip8 *Chip) {
     bool left16;
     uint8_t carryout;
     int cycles;
+    bool rowCollision;
     const uint8_t *keyboardstate = SDL_GetKeyboardState(NULL);
     // for keypress
     SDL_Event event;
@@ -194,6 +195,9 @@ void loop(chip8 *Chip) {
             render = true;
           }
         }
+
+        // printf("pc: %X\n", Chip->pc);
+
         // fetch
         // combine the 2 8 bit halves of the instruction
         Chip->opcode = ((uint16_t)Chip->memory[Chip->pc] << 8) |
@@ -207,7 +211,7 @@ void loop(chip8 *Chip) {
         data1 = &(Chip->registers[regi1]);
         data2 = &(Chip->registers[regi2]);
 
-        printf("Full: %04X\n", Chip->opcode);
+        // printf("Full: %04X\n", Chip->opcode);
 
         switch (firstNumber) {
         case 0x00:
@@ -220,6 +224,7 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
+              puts("Scroll down");
               N = Chip->opcode & 0x000F;
               for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 1 - SCREEN_WIDTH * N;
                    i >= 0; i--) {
@@ -236,7 +241,7 @@ void loop(chip8 *Chip) {
           }
           switch (Chip->opcode) {
           case 0x00E0:
-            //            puts("clearing");
+            puts("clearing");
             memset(Chip->video, 0x00000000, sizeof(Chip->video));
             renderDraw(true, false);
             break;
@@ -254,7 +259,7 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
-              // puts("right scroll");
+              puts("Scroll right");
               for (int i = SCREEN_HEIGHT * SCREEN_WIDTH - 5; i >= 0; i--) {
                 Chip->video[i + 4] = Chip->video[i];
                 if (i % SCREEN_WIDTH < 4) {
@@ -278,7 +283,7 @@ void loop(chip8 *Chip) {
             case (1):
             case (2):
             case (3):
-              // puts("lefts croll");
+              puts("lefts croll");
               for (int i = 4; i < SCREEN_HEIGHT * SCREEN_WIDTH; i++) {
                 Chip->video[i - 4] = Chip->video[i];
                 if (i % SCREEN_WIDTH > SCREEN_WIDTH - 4) {
@@ -595,9 +600,10 @@ void loop(chip8 *Chip) {
             // Chip->index, x, y, N);
 
             if (left16) {
-              puts("BINTING BIG STPRITE");
+              // puts("BINTING BIG STPRITE");
+              rowCollision = false;
               for (int row = 0; row < 32; row++) {
-                if (row + y > SCREEN_HEIGHT) {
+                if (row / 2 + y > SCREEN_HEIGHT) {
                   break;
                 }
                 // printf("%X\n", Chip->index + row);
@@ -617,21 +623,25 @@ void loop(chip8 *Chip) {
                   if (spriteCur) {
                     if (*screenPixel == 0xFFFFFFFF) {
                       *screenPixel = 0x00000000;
-                      Chip->registers[0x0F] = 1;
+                      rowCollision = true;
                       renderDraw(false, false);
                     } else {
                       *screenPixel = 0xFFFFFFFF;
                       renderDraw(false, true);
                       // printf("drawing at %d, %d ", col + x, row + y);
                     }
-                    SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+                    SDL_RenderDrawPoint(gRenderer, (col + x), (row / 2 + y));
                   }
                 }
                 // puts("");
                 left16 = !left16;
-                if (left16) {
+                if (!left16) {
                   x += 8;
                 } else {
+                  if (rowCollision) {
+                    Chip->registers[0x0F] += 1;
+                    rowCollision = false;
+                  }
                   x -= 8;
                 }
               }
@@ -753,7 +763,11 @@ void loop(chip8 *Chip) {
             break;
           case 0x29:
             // access font at VX
+            puts("accessing font");
             Chip->index = 0x050 + (*data1 & 0x0F) * 5;
+            break;
+          case 0x30:
+            puts("large font");
             break;
           case 0x33:
             // store bcd of VX at index, index+1, index+2
@@ -800,7 +814,12 @@ void loop(chip8 *Chip) {
               }
               break;
             }
-
+            break;
+          case 0x75:
+            puts("save Flags");
+            break;
+          case 0x85:
+            puts("load flags");
             break;
           }
           break;

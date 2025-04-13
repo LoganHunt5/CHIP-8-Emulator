@@ -9,7 +9,7 @@ OBJ = chip8.o
 
 LIB = -lSDL2
 
-GAME = chickenScratch.ch8
+GAME = binding.ch8
 
 OUTPUT = chip8
 
