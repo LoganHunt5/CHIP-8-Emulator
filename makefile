@@ -1,6 +1,6 @@
 #CC specifies which compiler we're using
 CC = g++
-CFLAGS = -w
+CFLAGS = -g3 -ggdb -Wall
 
 #TARGET specifies the name of our exectuable
 TARGET = chip8
@@ -9,11 +9,10 @@ OBJ = chip8.o
 
 LIB = -lSDL2
 
-GAME = binding.ch8
+GAME = RPS.ch8
 
 OUTPUT = chip8
 
-#This is the target that compiles our executable
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(OBJ) $(LIB) -o $(TARGET)
 
