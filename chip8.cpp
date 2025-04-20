@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
       } else {
         // Main loop flag
         bool quit = false;
+        SDL_RenderClear(gFiller);
         const double performance_freq = (double)SDL_GetPerformanceFrequency();
 
         while (!TheChip.quit) {
@@ -50,9 +51,19 @@ int main(int argc, char *argv[]) {
           }
 
           loop(&TheChip);
-          SDL_RenderClear(gFiller);
-          SDL_RenderPresent(gFiller);
-          SDL_RenderPresent(gRenderer);
+          if (chipType == CHIP) {
+            if (TheChip.clear) {
+              TheChip.clear = false;
+              renderDraw(true, false);
+            }
+            if (TheChip.render) {
+              TheChip.render = false;
+              SDL_RenderPresent(gRenderer);
+            }
+          } else {
+            SDL_RenderPresent(gFiller);
+            SDL_RenderPresent(gRenderer);
+          }
           Uint64 end = SDL_GetPerformanceCounter();
 
           double timed = ((end - start) * 1000) / performance_freq;
@@ -63,10 +74,6 @@ int main(int argc, char *argv[]) {
           if (timed < 1000.00 / FRAMERATE) {
             SDL_Delay((Uint32)(1000.00 / FRAMERATE - timed));
           }
-          /*if (TheChip.clear && chipType != CHIP) {
-            TheChip.clear = false;
-            renderDraw(true, false);
-          }*/
         }
       }
       close();
@@ -199,11 +206,12 @@ void loop(chip8 *Chip) {
         for (int i = 0; i < 8192; ++i) {
           Chip->video[i] = 0x00000000;
         }
+        Chip->clear = true;
         if (chipType == CHIP) {
           cycles = Chip->speed;
+        } else {
+          renderDraw(true, false);
         }
-        Chip->clear = true;
-        renderDraw(true, false);
         break;
       case 0x00EE:
         Chip->pc = Chip->stack.top();
@@ -784,6 +792,7 @@ void op_DXY0(chip8 *Chip) {
   switch (chipType) {
   case 0:
     // draw command
+    Chip->render = true;
     x = *data1 % SCREEN_WIDTH;
     y = *data2 % SCREEN_HEIGHT;
     // height
@@ -826,8 +835,14 @@ void op_DXY0(chip8 *Chip) {
             renderDraw(false, true);
             // printf("drawing at %d, %d ", col + x, row + y);
           }
-          SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
+        } else {
+          if (*screenPixel == 0x00000000) {
+            renderDraw(false, false);
+          } else {
+            renderDraw(false, true);
+          }
         }
+        SDL_RenderDrawPoint(gRenderer, (col + x), (row + y));
         //           puts("");
       }
     }
