@@ -1,10 +1,5 @@
 // Using SDL and standard IO
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_events.h>
-#include <SDL2/SDL_keyboard.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_scancode.h>
-#include <SDL2/SDL_video.h>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -35,6 +30,7 @@ public:
   int speed;
   bool quit;
   bool render;
+  bool queueAudio;
   bool clear;
 };
 

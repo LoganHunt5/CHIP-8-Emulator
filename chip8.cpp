@@ -1,14 +1,16 @@
 // TODO VF incremented for every row that is past bot of screen
 
 #include "chip8_lib.h"
-#include <SDL2/SDL_pixels.h>
-#include <SDL2/SDL_render.h>
-#include <SDL2/SDL_surface.h>
-#include <SDL2/SDL_timer.h>
+#include <SDL2/SDL_audio.h>
+#include <SDL2/SDL_error.h>
 
 // Screen dimensions (not constant)
 int SCREEN_WIDTH = 64;
 int SCREEN_HEIGHT = 32;
+
+SDL_AudioSpec wavSpec;
+Uint32 wavLength;
+Uint8 *wavBuffer;
 
 // globals
 // Window
@@ -34,6 +36,9 @@ int main(int argc, char *argv[]) {
       if (!init()) {
         printf("failed to init\n");
       } else {
+        SDL_LoadWAV("audiomass-output.wav", &wavSpec, &wavBuffer, &wavLength);
+        SDL_AudioDeviceID deviceId =
+            SDL_OpenAudioDevice(NULL, 0, &wavSpec, NULL, 0);
         // Main loop flag
         bool quit = false;
         SDL_RenderClear(gFiller);
@@ -47,7 +52,17 @@ int main(int argc, char *argv[]) {
             --TheChip.delay_timer;
           }
           if (TheChip.sound_timer > 0) {
+            if (TheChip.queueAudio || SDL_GetQueuedAudioSize(deviceId) == 0) {
+              SDL_QueueAudio(deviceId, wavBuffer, wavLength);
+              TheChip.queueAudio = false;
+            }
             --TheChip.sound_timer;
+            SDL_PauseAudioDevice(deviceId, 0);
+            if (TheChip.sound_timer == 0) {
+              puts("sound_timer got to 0");
+              SDL_ClearQueuedAudio(deviceId);
+              SDL_PauseAudioDevice(deviceId, 1);
+            }
           }
 
           loop(&TheChip);
@@ -75,6 +90,7 @@ int main(int argc, char *argv[]) {
             SDL_Delay((Uint32)(1000.00 / FRAMERATE - timed));
           }
         }
+        SDL_CloseAudioDevice(deviceId);
       }
       close();
     }
@@ -152,6 +168,7 @@ void initChip(chip8 *Chip) {
     Chip->video[i] = 0x00000000;
   }
   Chip->render = false;
+  Chip->queueAudio = false;
   Chip->quit = false;
   Chip->clear = false;
   for (int i = 0; i < 16; i++) {
@@ -445,7 +462,7 @@ bool init() {
 
   bool success = true;
 
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  if (SDL_Init(SDL_INIT_VIDEO) || SDL_Init(SDL_INIT_AUDIO)) {
     printf("SDL could not init! SDL_Error: %s\n", SDL_GetError());
     success = false;
   } else {
@@ -514,6 +531,7 @@ void close() {
   SDL_DestroyRenderer(gRenderer);
   SDL_DestroyRenderer(gFiller);
   SDL_DestroyWindow(gWindow);
+  SDL_FreeWAV(wavBuffer);
   SDL_Quit();
 }
 
@@ -1038,6 +1056,9 @@ void op_FX15(chip8 *Chip) {
 void op_FX18(chip8 *Chip) {
   uint8_t regi1 = (uint8_t)((Chip->opcode & 0x0F00) >> 8);
   uint8_t *data1 = &(Chip->registers[regi1]);
+  if (*data1 != 0 && Chip->sound_timer == 0) {
+    Chip->queueAudio = true;
+  }
   Chip->sound_timer = *data1;
 }
 
