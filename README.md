@@ -1,5 +1,5 @@
 # CHIP-8/SUPERCHIP Emulator
-A CHIP-8 Emulator with limited support for SUPERCHIP games written in C++
+A CHIP-8 Emulator with limited support for SUPERCHIP games, written in C++
 
 ![image](https://github.com/user-attachments/assets/150d4e6f-b289-43b6-a555-2a6ff52c6d8e)
 
